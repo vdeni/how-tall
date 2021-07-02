@@ -8,7 +8,7 @@ using MCMCChains
 # load data into DataFrame
 d = CSV.read(joinpath("analyses",
                       "data",
-                      "heights_d.csv"),
+                      "height_d.csv"),
              DataFrame)
 
 # build height estimation model
@@ -19,14 +19,22 @@ d = CSV.read(joinpath("analyses",
 
 @model function m_height(height)
     μ ~ Normal(196, .75)
+    σ ~ Exponential(1)
 
     for i in 1:length(height)
-        height[i] ~ Normal(μ, .5)
+        height[i] ~ Normal(μ, σ)
     end
 end
 
 # sample
 chains = sample(m_height(d.height_cm),
-                HMC(.05, 10),
-                1000)
+                NUTS(),
+                MCMCThreads(),
+                1000,
+                8)
 
+chains = sample(m_height(d.height_cm),
+                Prior(),
+                MCMCThreads(),
+                1000,
+                8)
