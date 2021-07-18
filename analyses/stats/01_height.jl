@@ -21,9 +21,11 @@ d = CSV.read(joinpath("analyses",
 d.weekday = CategoricalArrays.CategoricalArray(Dates.dayname.(d.date),
                                                ordered = true)
 
-levels!(d.weekday,
-        ["Monday", "Tuesday", "Wednesday", "Thursday",
-         "Friday", "Saturday", "Sunday"])
+CategoricalArrays.levels!(d.weekday,
+                          ["Monday", "Tuesday", "Wednesday", "Thursday",
+                           "Friday", "Saturday", "Sunday"])
+
+marker_color = Plots.palette(:viridis, 3)[2]
 
 p_height_by_day = @df d scatter(:weekday,
                                 :height_cm;
@@ -32,7 +34,7 @@ p_height_by_day = @df d scatter(:weekday,
                                 xlims = (0.4, 7.5),
                                 xticks = 1:7,
                                 legend = false,
-                                color = palette(:viridis, 3)[2],
+                                color = marker_color,
                                 dpi = 300,
                                 xlabel = "Day of the week",
                                 ylabel = "Height in centimeters",
@@ -47,10 +49,10 @@ p_height_by_hour = @df d_p_by_hour scatter(:time_hours,
                                            :height_cm;
                                            yticks = 194:199,
                                            ylims = (194.5, 199.5),
-                                           xticks = 10:20,
+                                           xticks = 10:2:20,
                                            xlims = (9, 21),
                                            legend = false,
-                                           color = palette(:viridis, 3)[2],
+                                           color = marker_color,
                                            dpi = 300,
                                            xlabel = "Time of day (hours)",
                                            ylabel = "Height in centimeters",
