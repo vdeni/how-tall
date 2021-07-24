@@ -83,6 +83,7 @@ p_height_distr = @df d Plots.density(:height_cm;
                                      grid = false,
                                      yshowaxis = false,
                                      label = "Data")
+
 Plots.plot!(p_height_distr,
             Turing.Normal(196, .75),
             legend = :topright,
@@ -113,3 +114,14 @@ chains = sample(m_height(d.height_cm),
                 6;
                 n_adapts = 1500,
                 drop_warmup = true)
+
+# model diagnostics
+# check trace and posterior density plots
+Plots.plot(chains)
+
+# check autocorrelation
+MCMCChains.autocorplot(chains,
+                       size = (600, 400))
+
+# check chain mixing via R-hat, and check effective sample size
+MCMCChains.summarize(chains)[:, [:parameters, :ess, :rhat]]
