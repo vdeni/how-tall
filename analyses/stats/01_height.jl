@@ -27,8 +27,6 @@ CategoricalArrays.levels!(d.weekday,
 
 # set plotting variables
 marker_color = Plots.palette(:viridis, 3)[2]
-line_color_1 = Plots.palette(:viridis, 3)[1]
-line_color_2 = Plots.palette(:viridis, 3)[2]
 
 # make plots
 p_height_by_day = @df d Plots.scatter(:weekday,
@@ -76,18 +74,23 @@ p_height_by_hour = @df d_p_by_hour Plots.scatter(:time_hours,
 # plot height distribution and prior for height
 p_height_distr = @df d Plots.density(:height_cm;
                                      dpi = 300,
-                                     color = line_color_1,
+                                     fillcolor = Plots.palette(:viridis, 2)[1],
+                                     fillalpha = .5,
+                                     fillrange = 0,
+                                     color = :black,
                                      yaxis = nothing,
                                      xlabel = "Height in centimeters",
                                      grid = false,
                                      yshowaxis = false,
                                      label = "Data")
-
 Plots.plot!(p_height_distr,
             Turing.Normal(196, .75),
             legend = :topright,
             label = "Prior",
-            color = line_color_2)
+            fillcolor = Plots.palette(:viridis, 2)[2],
+            fillalpha = .5,
+            fillrange = 0,
+            color = :black)
 
 # build height estimation model
 # my initial belief is that I'm 196 cm tall. I'd consider anything between 194
