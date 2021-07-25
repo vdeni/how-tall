@@ -1,9 +1,12 @@
 ---
 title: How tall am I? A Bayesian exploration using the Julia language.
 author: Denis Vlašiček
+date: `j using Dates; Dates.Date(Dates.now())`
 weave_options:
     echo: true
-date: `j using Dates; Dates.Date(Dates.now())`
+    dpi: 300
+    out_width: "800px"
+    out_height: "600px"
 ---
 
 Being a tall person, I often get asked how tall I am when I meet new people.
@@ -20,56 +23,133 @@ The code and the data are available in the GitHub repository
 
 ## Setting up the environment
 
-```julia; eval=false
+In order to conduct the planned analysis, we will load some Julia modules. We
+will use `{CSV}` to read in the data, which are stored in a comma separated
+values (csv) file. We will store that data as a `{DataFrames}` `DataFrame`
+object, which is similar to the `data.frame` objects in the R language.
+
+We will use some functions from `{Dates}` to determine the days of the week
+on which the measrurements were taken, and use `{CategoricalArrays}` to declare
+an ordered categorical variable holding the days of the week.
+
+We will use `{Turing}` and `{MCMCChains}` to fit and handle the Bayesian
+modelling.
+
+Finally, we will use `{Plots}` and `{StatsPlots}` for various visualization
+functions.
+
+```julia
 # load packages
 using CSV
 using DataFrames
+using Dates
 using CategoricalArrays
 using Turing
+using MCMCChains
 using Plots
 using StatsPlots
-using MCMCChains
-using Dates
 
-# set plotting backend
-Plots.GRBackend()
+# I choose the GR backend for plotting. See Plots.jl documentation for more
+# information. The semicolon is just to suppress the printing of the function's
+# output.
+Plots.GRBackend();
+```
 
+## Loading the data
+
+As mentioned earlier, the data is stored in a CSV file, which I'll read in using
+the `{CSV}` module. The read data will be dumped into a `DataFrame`, as
+indicated by the second argument to the `CSV.read` function. I am also using the
+`joinpath` function to supply the path to the data file in order to make the
+code portable across different operating systems.
+
+```julia
 # load data into DataFrame
-d = CSV.read(joinpath("analyses",
+d = CSV.read(joinpath("..",
+                      "analyses",
                       "data",
                       "height_d.csv"),
-             DataFrames.DataFrame)
+             DataFrames.DataFrame);
+```
 
-# plot height by day of week
+We can see that the data frame has three columns: the date of the measurement
+(ISO formatted), the hour of the measurement (in the 24-hour format), and the
+recorded height (in centimeters).
+
+## Graphing the data
+
+Now that the data is loaded, I'll make some plots to inspect it. First, I'll try
+plotting the distribution of height measurements across the days of the week. In
+order to do that, I will first get the day of the week for each of the recorded
+dates. I'll do that using the `dayname` function from the `Dates` package. I
+will also store the data as a categorical variable, i.e. as variable of the type
+`CategoricalArray`.
+
+```julia
+# get day of the week for each date in the dataset
 d.weekday = CategoricalArrays.CategoricalArray(Dates.dayname.(d.date);
-                                               ordered = true)
+                                               ordered = true);
 
+# set the ordering of the levels of the categorical variable
 CategoricalArrays.levels!(d.weekday,
                           ["Monday", "Tuesday", "Wednesday", "Thursday",
-                           "Friday", "Saturday", "Sunday"])
+                           "Friday", "Saturday", "Sunday"]);
 
-# set plotting variables
+show(d)
+```
+
+The data frame now has a new variable, `weekday`, which I'll use for plotting.
+In the code below, I'm using a multiline comment (`#= ... =#`) to split the
+`@df` macro from the `scatter` function call. The two could be on the same line,
+but I think the code is cleaner this way. Note that the `@df` macro and the
+function call cannot be split by a simple line break; that's why I'm using a
+multiline comment (the idea came from
+[this](https://github.com/JuliaLang/julia/issues/27533#issuecomment-396381213)
+comment).
+
+```julia
+# set some variables used for plot aesthetics
 marker_color = Plots.palette(:viridis, 3)[2]
 line_color = Plots.palette(:viridis, 3)[2]
 
-# make plots
+# make scatterplot of days of the week against height measurements.
 p_height_by_day = StatsPlots.@df d #=
     =# Plots.scatter(:weekday,
                      :height_cm;
                      yticks = 194:200,
                      ylims = (194.5, 199.5),
+                     # here, I've extended the limits on the x-axis somewhat
+                     # in order to put some padding between the y-axis and the
+                     # points for Monday measurements
                      xlims = (0.4, 7.5),
                      xticks = 1:7,
                      legend = false,
                      color = marker_color,
                      dpi = 300,
+                     size = (800, 600),
                      xlabel = "Day of the week",
                      ylabel = "Height in centimeters",
                      markeralpha = .7,
                      markerstrokewidth = 1,
                      gridstyle = :dash)
+```
 
+The scatterplot seems to imply that there's no correlation between the days of
+the week and height. Of course, no such correlation should be expected.
+
+However, there should be *some* correlation between the time at which a
+measurement was taken, and its amount --- higher values should be observed
+earlier in the day, and lower values later in the day. Therefore, I will also
+plot the hours at which the measurements were taken against the measured
+heights. I will first filter out a single measurement that was taken at
+midnight, in order to get a prettier plot; the single measurement taken at that
+time should not be very informative.
+
+```julia
 # plot height by time of day
+
+# filter out the single measurement that was taken at midnight. the x -> ...
+# syntax is used to creat an anonymous function, which is used for filtering
 d_p_by_hour = DataFrames.filter(x -> x.time_hours > 0,
                                 d)
 
@@ -83,12 +163,18 @@ p_height_by_hour = StatsPlots.@df d_p_by_hour #=
                      legend = false,
                      color = marker_color,
                      dpi = 300,
+                     size = (800, 600),
                      xlabel = "Time of day (hours)",
                      ylabel = "Height in centimeters",
                      markeralpha = .7,
                      markerstrokewidth = 1,
                      gridstyle = :dash)
 
+```
+
+Indeed, the plotted data seem to imply that such a correlation exists.
+
+```julia; eval=false
 # plot height distribution and prior for height
 p_height_distr = StatsPlots.@df d #=
     =# Plots.density(:height_cm;
