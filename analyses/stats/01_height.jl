@@ -27,6 +27,7 @@ CategoricalArrays.levels!(d.weekday,
 
 # set plotting variables
 marker_color = Plots.palette(:viridis, 3)[2]
+line_color = Plots.palette(:viridis, 3)[2]
 
 # make plots
 p_height_by_day = @df d Plots.scatter(:weekday,
@@ -125,3 +126,57 @@ MCMCChains.autocorplot(chains,
 
 # check chain mixing via R-hat, and check effective sample size
 MCMCChains.summarize(chains)[:, [:parameters, :ess, :rhat]]
+
+# make posterior predictive check
+ppc = Turing.predict(m_height(Vector{Union{Missing, Number}}(missing,
+                                                               nrow(d))),
+                     chains)
+
+# extract draws
+d_ppc = DataFrames.DataFrame(ppc)
+
+# fix column names
+newnames = replace.(names(d_ppc),
+                    "[" => "_") |>
+    x -> replace.(x,
+                  "]" => "")
+
+d_ppc = DataFrames.rename(d_ppc,
+                          newnames)
+
+# plot predicted heights based on values from 100 randomly chosen iterations
+v_iters = rand(1:nrow(d_ppc),
+               1500)
+
+d_ppc_plot = d_ppc[v_iters, :]
+
+d_ppc_plot.id = 1:nrow(d_ppc_plot)
+
+# reshape data for plotting
+d_ppc_plot = DataFrames.stack(d_ppc_plot,
+                              r"height_";
+                              variable_name = "rep_id",
+                              value_name = "rep_height")
+
+# plot posterior predictions
+p_ppc = @df d_ppc_plot Plots.density(:rep_height;
+                                     group = :iteration,
+                                     legend = :topright,
+                                     linecolor = :black,
+                                     linewidth = 1,
+                                     linealpha = .1,
+                                     yaxis = nothing,
+                                     xlabel = "Height in centimeters",
+                                     grid = false,
+                                     yshowaxis = false,
+                                     label = ["Posterior predictions" #=
+                                              =# repeat([""], 1, 1499)])
+
+Plots.density!(p_ppc,
+               d.height_cm;
+               linewidth = 2,
+               linecolor = line_color,
+               fillrange = 0,
+               fill = line_color,
+               fillalpha = .5,
+               label = "Data")
