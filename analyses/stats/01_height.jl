@@ -95,12 +95,11 @@ end
 
 # sample
 chains = sample(m_height(d.height_cm),
-                NUTS(),
+                NUTS(1500, .80),
                 MCMCThreads(),
                 3000,
                 6;
-                n_adapts = 1500,
-                drop_warmup = true)
+                discard_adapts = true)
 
 # model diagnostics
 # check trace and posterior density plots

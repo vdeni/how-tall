@@ -208,29 +208,52 @@ my height -- I believe that I'm 196 cm tall, but leave (a little) space for
 values above and below; the .1, .5 and .9 quantiles of this distribution are
 `j show(round.(quantile(Turing.Normal(196, .75), [.1, .5, .9]), digits = 3))`.
 
+I've chosen an $Exponential(1)$ distribution as the prior for the standard
+deviation of the data distribution; this exponential distribution's .1, .5 and
+.9 quantiles are
+`j show(round.(quantile(Turing.Exponential(1), [.1, .5, .9]), digits = 3))`. I
+think this adequately represents my belief that the variation of the height
+measurements should not be too high. Note that these priors were chosen before
+plotting the data, but during data collection.
+
+Now, let's code up the Bayesian model in `{Turing}`. This is fairly easy, given
+that this is a simple model.
+
 ```julia; eval=false
 # build height estimation model
-# my initial belief is that I'm 196 cm tall. I'd consider anything between 194
-# and 198 to be plausible. however, those end-values should bot be very
-# probable.
 @model function m_height(height)
+    # set the priors for the μ and σ parameters
     μ ~ Normal(196, .75)
     σ ~ Exponential(1)
 
+    # set likelihood for the data
     for i in 1:length(height)
         height[i] ~ Normal(μ, σ)
     end
 end
+```
 
+To sample from the model, we use the `sample` function, with the Bayesian model
+as the first argument. In the chunk below, I'm telling Julia to use the `NUTS`
+sampler (the same one that Stan is using), to draw 3000 post-warmup samples for
+each chain, and to run 6 parallel chains. For `MCMCThreads()` to work, Julia has
+to be started with the `-t X` option set, where `X` is the number of CPU cores
+available to Julia.
+
+```julia; eval=false
 # sample
-chains = sample(m_height(d.height_cm),
-                NUTS(),
-                MCMCThreads(),
-                3000,
-                6;
-                n_adapts = 1500,
-                drop_warmup = true)
+chains = Turing.sample(m_height(d.height_cm),
+                       # sampler; 1500 warmup steps, .8 acceptance rate
+                       NUTS(1500, .80),
+                       # how to do parallel computation; check the docs
+                       MCMCThreads(),
+                       # number of post-warmup iterations
+                       3000,
+                       6;
+                       discard_adapt=true)
+```
 
+```julia; eval=false
 # model diagnostics
 # check trace and posterior density plots
 Plots.plot(chains)
