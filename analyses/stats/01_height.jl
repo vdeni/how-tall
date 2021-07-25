@@ -66,7 +66,7 @@ p_height_by_hour = StatsPlots.@df d_p_by_hour #=
                      markerstrokewidth = 1,
                      gridstyle = :dash)
 
-# plot height distribution and prior for height
+# plot height distribution
 p_height_distr = StatsPlots.@df d #=
     =# Plots.density(:height_cm;
                      dpi = 300,
@@ -78,16 +78,7 @@ p_height_distr = StatsPlots.@df d #=
                      xlabel = "Height in centimeters",
                      grid = false,
                      yshowaxis = false,
-                     label = "Data")
-
-Plots.plot!(p_height_distr,
-            Turing.Normal(196, .75),
-            legend = :topright,
-            label = "Prior",
-            fillcolor = Plots.palette(:viridis, 2)[2],
-            fillalpha = .5,
-            fillrange = 0,
-            color = :black)
+                     legend = :none)
 
 # build height estimation model
 # my initial belief is that I'm 196 cm tall. I'd consider anything between 194

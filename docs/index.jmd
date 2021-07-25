@@ -49,7 +49,7 @@ using MCMCChains
 using Plots
 using StatsPlots
 
-# I choose the GR backend for plotting. See Plots.jl documentation for more
+# I chose the GR backend for plotting. See Plots.jl documentation for more
 # information. The semicolon is just to suppress the printing of the function's
 # output.
 Plots.GRBackend();
@@ -70,11 +70,15 @@ d = CSV.read(joinpath("..",
                       "data",
                       "height_d.csv"),
              DataFrames.DataFrame);
+
+show(d)
 ```
 
 We can see that the data frame has three columns: the date of the measurement
 (ISO formatted), the hour of the measurement (in the 24-hour format), and the
-recorded height (in centimeters).
+recorded height (in centimeters). We can also see the types of the values stored
+in the columns (`Date`, `Int64` and `Float64`), and that there are 30 rows in
+total.
 
 ## Graphing the data
 
@@ -138,7 +142,7 @@ The scatterplot seems to imply that there's no correlation between the days of
 the week and height. Of course, no such correlation should be expected.
 
 However, there should be *some* correlation between the time at which a
-measurement was taken, and its amount --- higher values should be observed
+measurement was taken, and its amount -- higher values should be observed
 earlier in the day, and lower values later in the day. Therefore, I will also
 plot the hours at which the measurements were taken against the measured
 heights. I will first filter out a single measurement that was taken at
@@ -159,6 +163,7 @@ p_height_by_hour = StatsPlots.@df d_p_by_hour #=
                      yticks = 194:199,
                      ylims = (194.5, 199.5),
                      xticks = 10:2:20,
+                     # again, somewhat extended xlims for visual clarity
                      xlims = (9, 21),
                      legend = false,
                      color = marker_color,
@@ -173,31 +178,37 @@ p_height_by_hour = StatsPlots.@df d_p_by_hour #=
 ```
 
 Indeed, the plotted data seem to imply that such a correlation exists.
+Finally, I'll plot the density of the height measurements.
+
+```julia
+# plot height distribution
+p_height_distr = StatsPlots.@df d #=
+    =# StatsPlots.density(:height_cm;
+                          dpi = 300,
+                          size = (800, 600),
+                          fillcolor = Plots.palette(:viridis, 2)[1],
+                          fillalpha = .5,
+                          fillrange = 0,
+                          color = :black,
+                          yaxis = nothing,
+                          xlabel = "Height in centimeters",
+                          grid = false,
+                          yshowaxis = false,
+                          legend = :none)
+```
+
+## Bayesian estimation
+
+After this cursory glance at the data, I'm turning to Bayesian modelling in
+order to estimate my height. I've decided to model the data as coming from a
+normal distribution with parameters $\mu$ and $\sigma$. I've also assumed that
+the $\mu$ parameter comes from a $Normal(196, .75)$ distribution. I've chosen
+this distribution because I think it adequately captures my prior belief about
+my height -- I believe that I'm 196 cm tall, but leave (a little) space for
+values above and below; the .1, .5 and .9 quantiles of this distribution are
+`j show(round.(quantile(Turing.Normal(196, .75), [.1, .5, .9]), digits = 3))`.
 
 ```julia; eval=false
-# plot height distribution and prior for height
-p_height_distr = StatsPlots.@df d #=
-    =# Plots.density(:height_cm;
-                     dpi = 300,
-                     fillcolor = Plots.palette(:viridis, 2)[1],
-                     fillalpha = .5,
-                     fillrange = 0,
-                     color = :black,
-                     yaxis = nothing,
-                     xlabel = "Height in centimeters",
-                     grid = false,
-                     yshowaxis = false,
-                     label = "Data")
-
-Plots.plot!(p_height_distr,
-            Turing.Normal(196, .75),
-            legend = :topright,
-            label = "Prior",
-            fillcolor = Plots.palette(:viridis, 2)[2],
-            fillalpha = .5,
-            fillrange = 0,
-            color = :black)
-
 # build height estimation model
 # my initial belief is that I'm 196 cm tall. I'd consider anything between 194
 # and 198 to be plausible. however, those end-values should bot be very
