@@ -30,60 +30,55 @@ marker_color = Plots.palette(:viridis, 3)[2]
 line_color = Plots.palette(:viridis, 3)[2]
 
 # make plots
-p_height_by_day = @df d Plots.scatter(:weekday,
-                                      :height_cm;
-                                      yticks = 194:200,
-                                      ylims = (194.5, 199.5),
-                                      xlims = (0.4, 7.5),
-                                      xticks = 1:7,
-                                      legend = false,
-                                      color = marker_color,
-                                      dpi = 300,
-                                      xlabel = "Day of the week",
-                                      ylabel = "Height in centimeters",
-                                      markeralpha = .7,
-                                      markerstrokewidth = 1,
-                                      gridstyle = :dash)
-
-# Plots.plot(p_height_by_day,
-#            size = (1920, 1080),
-#            margin = 10Plots.mm) |>
-#     x -> Plots.savefig(x,
-#                        joinpath("analyses",
-#                                 "stats",
-#                                 "p_height_by_day.pdf"))
+p_height_by_day = StatsPlots.@df d #=
+    =# Plots.scatter(:weekday,
+                     :height_cm;
+                     yticks = 194:200,
+                     ylims = (194.5, 199.5),
+                     xlims = (0.4, 7.5),
+                     xticks = 1:7,
+                     legend = false,
+                     color = marker_color,
+                     dpi = 300,
+                     xlabel = "Day of the week",
+                     ylabel = "Height in centimeters",
+                     markeralpha = .7,
+                     markerstrokewidth = 1,
+                     gridstyle = :dash)
 
 # plot height by time of day
 d_p_by_hour = DataFrames.filter(x -> x.time_hours > 0,
                                 d)
 
-p_height_by_hour = @df d_p_by_hour Plots.scatter(:time_hours,
-                                                 :height_cm;
-                                                 yticks = 194:199,
-                                                 ylims = (194.5, 199.5),
-                                                 xticks = 10:2:20,
-                                                 xlims = (9, 21),
-                                                 legend = false,
-                                                 color = marker_color,
-                                                 dpi = 300,
-                                                 xlabel = "Time of day (hours)",
-                                                 ylabel = "Height in centimeters",
-                                                 markeralpha = .7,
-                                                 markerstrokewidth = 1,
-                                                 gridstyle = :dash)
+p_height_by_hour = StatsPlots.@df d_p_by_hour #=
+    =# Plots.scatter(:time_hours,
+                     :height_cm;
+                     yticks = 194:199,
+                     ylims = (194.5, 199.5),
+                     xticks = 10:2:20,
+                     xlims = (9, 21),
+                     legend = false,
+                     color = marker_color,
+                     dpi = 300,
+                     xlabel = "Time of day (hours)",
+                     ylabel = "Height in centimeters",
+                     markeralpha = .7,
+                     markerstrokewidth = 1,
+                     gridstyle = :dash)
 
 # plot height distribution and prior for height
-p_height_distr = @df d Plots.density(:height_cm;
-                                     dpi = 300,
-                                     fillcolor = Plots.palette(:viridis, 2)[1],
-                                     fillalpha = .5,
-                                     fillrange = 0,
-                                     color = :black,
-                                     yaxis = nothing,
-                                     xlabel = "Height in centimeters",
-                                     grid = false,
-                                     yshowaxis = false,
-                                     label = "Data")
+p_height_distr = StatsPlots.@df d #=
+    =# Plots.density(:height_cm;
+                     dpi = 300,
+                     fillcolor = Plots.palette(:viridis, 2)[1],
+                     fillalpha = .5,
+                     fillrange = 0,
+                     color = :black,
+                     yaxis = nothing,
+                     xlabel = "Height in centimeters",
+                     grid = false,
+                     yshowaxis = false,
+                     label = "Data")
 
 Plots.plot!(p_height_distr,
             Turing.Normal(196, .75),
@@ -129,7 +124,7 @@ MCMCChains.summarize(chains)[:, [:parameters, :ess, :rhat]]
 
 # make posterior predictive check
 ppc = Turing.predict(m_height(Vector{Union{Missing, Number}}(missing,
-                                                               nrow(d))),
+                                                             nrow(d))),
                      chains)
 
 # extract draws
@@ -159,18 +154,19 @@ d_ppc_plot = DataFrames.stack(d_ppc_plot,
                               value_name = "rep_height")
 
 # plot posterior predictions
-p_ppc = @df d_ppc_plot Plots.density(:rep_height;
-                                     group = :iteration,
-                                     legend = :topright,
-                                     linecolor = :black,
-                                     linewidth = 1,
-                                     linealpha = .1,
-                                     yaxis = nothing,
-                                     xlabel = "Height in centimeters",
-                                     grid = false,
-                                     yshowaxis = false,
-                                     label = ["Posterior predictions" #=
-                                              =# repeat([""], 1, 1499)])
+p_ppc = StatsPlots.@df d_ppc_plot #=
+    =# Plots.density(:rep_height;
+                     group = :iteration,
+                     legend = :topright,
+                     linecolor = :black,
+                     linewidth = 1,
+                     linealpha = .1,
+                     yaxis = nothing,
+                     xlabel = "Height in centimeters",
+                     grid = false,
+                     yshowaxis = false,
+                     label = ["Posterior predictions" #=
+                              =# repeat([""], 1, 1499)])
 
 Plots.density!(p_ppc,
                d.height_cm;
