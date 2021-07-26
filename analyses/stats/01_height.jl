@@ -130,8 +130,9 @@ d_ppc = DataFrames.rename(d_ppc,
                           newnames)
 
 # plot predicted heights based on values from 100 randomly chosen iterations
-v_iters = rand(1:nrow(d_ppc),
-               1500)
+v_iters = sample(1:nrow(d_ppc),
+                 1500;
+                 replace = false)
 
 d_ppc_plot = d_ppc[v_iters, :]
 
@@ -146,7 +147,7 @@ d_ppc_plot = DataFrames.stack(d_ppc_plot,
 # plot posterior predictions
 p_ppc = StatsPlots.@df d_ppc_plot #=
     =# Plots.density(:rep_height;
-                     group = :iteration,
+                     group = :id,
                      legend = :topright,
                      linecolor = :black,
                      linewidth = 1,

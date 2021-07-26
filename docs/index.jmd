@@ -69,7 +69,7 @@ d = CSV.read(joinpath("..",
                       "analyses",
                       "data",
                       "height_d.csv"),
-             DataFrames.DataFrame);
+             DataFrames.DataFrame)
 
 show(d)
 ```
@@ -92,12 +92,12 @@ will also store the data as a categorical variable, i.e. as variable of the type
 ```julia
 # get day of the week for each date in the dataset
 d.weekday = CategoricalArrays.CategoricalArray(Dates.dayname.(d.date);
-                                               ordered = true);
+                                               ordered = true)
 
 # set the ordering of the levels of the categorical variable
 CategoricalArrays.levels!(d.weekday,
                           ["Monday", "Tuesday", "Wednesday", "Thursday",
-                           "Friday", "Saturday", "Sunday"]);
+                           "Friday", "Saturday", "Sunday"])
 
 show(d)
 ```
@@ -230,7 +230,7 @@ that this is a simple model.
     for i in 1:length(height)
         height[i] ~ Normal(μ, σ)
     end
-end
+end;
 ```
 
 To sample from the model, we use the `sample` function, with the Bayesian model
@@ -243,41 +243,83 @@ available to Julia.
 ```julia
 # sample
 chains = Turing.sample(m_height(d.height_cm),
-                       # sampler; 1500 warmup steps, .8 acceptance rate
+                       # sampler; 1500 warmup steps, .8 target acceptance rate
                        NUTS(1500, .80),
                        # how to do parallel computation; check the docs
                        MCMCThreads(),
                        # number of post-warmup iterations
                        3000,
+                       # number of chains
                        6;
-                       discard_adapt = true);
+                       # do not keep warmup samples
+                       discard_adapt = true)
 
 d_summary = MCMCChains.summarize(chains)
+display(d_summary[:, [:mean, :std, :ess]])
+
 d_quantiles = MCMCChains.quantile(chains)
+display(d_quantiles)
 ```
 
-So, according to the results, the mean of the $\mu$ estimates is
-`j round(d_summary[1, :mean]; digits = 2)`, with 95% of the samples contained
+According to the results, the mean of the $\mu$ estimates is
+`j round(d_summary[1, :mean]; digits = 2)`, with 95% of the estimates falling
 between `j round(d_quantiles[:μ, Symbol("2.5%")]; digits = 2)` and
-`j round(d_quantiles[:μ, Symbol("97.5%")]; digits = 2)`.
+`j round(d_quantiles[:μ, Symbol("97.5%")]; digits = 2)`. So, based on the data
+and the prior, I conclude that I'm a bit taller than I initially thought.
 
-```julia; eval=false
-# model diagnostics
+## Model diagnostics
+
+Finally, after fitting the model, we'll take a look at some Bayesian model
+diagnostics.Bayesian model diagnostics. First, we'll look at the trace plots and
+density plots of the Markov chains, to see whether they mix well, converge, and
+efficiently explore the parameter space.
+
+```julia
 # check trace and posterior density plots
-Plots.plot(chains)
+Plots.plot(chains;
+           size = (800, 600))
+```
 
-# check autocorrelation
-MCMCChains.autocorplot(chains,
-                       size = (600, 400))
+The plots on the left show the parameters values each chain explored in each
+step of Monte Carlo sampling. The chains seem to be well mixed, and seem not to
+be stuck around a narrow range of values. This is good. The plots on the right
+show the densities of the values sampled in each chain. The overlap of the
+distributions on these plots also implies that the chains have converged, and
+that they are producing representative samples from the posterior (see chapter
+7 in John Kruschke's *Doing Bayesian Data Analysis* for a friendly explanation
+of various MCMC diagnostics).
 
-# check chain mixing via R-hat, and check effective sample size
-MCMCChains.summarize(chains)[:, [:parameters, :ess, :rhat]]
+We'll also check the $\hat{R}$ statistic and the effective sample size (ESS),
+which are provided by the `summarize` function, and present in our `d_summary`
+table.
 
+```julia
+display(d_summary[:, [:ess, :rhat]])
+```
+
+Values of $\hat{R}$ close to 1 indicate that the chains have converged, which is
+the case for this model. The effective sample size tries to give an estimate of
+the amount of independent information present in the chains. The estimated
+effective sample sizes for this model should be sufficient for our purposes.
+
+Finally, we'll make a posterior predictive check. That is, we'll try simulating
+new height measurements from the fitted model, and compare them to the data.
+If I understood the `{Turing}` documentation correctly, this can easily be done 
+by using the `predict` function, and calling the Bayesian model with a vector of
+`missing` values as data. This is done in the chunk below:
+
+```julia
 # make posterior predictive check
 ppc = Turing.predict(m_height(Vector{Union{Missing, Number}}(missing,
                                                              nrow(d))),
                      chains)
+```
 
+Now that we have simulated data, we can plot it against the observed data.
+First, we'll extract the draws into a `DataFrame`, and remove the brackets from
+the column names.
+
+```julia
 # extract draws
 d_ppc = DataFrames.DataFrame(ppc)
 
@@ -289,13 +331,22 @@ newnames = replace.(names(d_ppc),
 
 d_ppc = DataFrames.rename(d_ppc,
                           newnames)
+```
 
-# plot predicted heights based on values from 100 randomly chosen iterations
-v_iters = rand(1:nrow(d_ppc),
-               1500)
+Next, we'll extract the simulated data from 1500 randomly chosen iterations.
+I'll reshape the `DataFrame` into the long format, for easier plotting; this is
+done with the `stack` function.
+
+```julia
+# randomly sample 1500 simulated height vectors (each with 30 simulated
+# measurements)
+v_iters = sample(1:nrow(d_ppc),
+                 1500;
+                 replace = false)
 
 d_ppc_plot = d_ppc[v_iters, :]
 
+# add id variable; this will be used to group the values when plotting
 d_ppc_plot.id = 1:nrow(d_ppc_plot)
 
 # reshape data for plotting
@@ -303,19 +354,30 @@ d_ppc_plot = DataFrames.stack(d_ppc_plot,
                               r"height_";
                               variable_name = "rep_id",
                               value_name = "rep_height")
+```
 
+Now that the data is ready, I'll plot the distributions of the simulated values
+and the distribution of the observed values.
+
+```julia
 # plot posterior predictions
 p_ppc = StatsPlots.@df d_ppc_plot #=
     =# Plots.density(:rep_height;
-                     group = :iteration,
+                     dpi = 300,
+                     size = (800, 600),
+                     group = :id,
                      legend = :topright,
                      linecolor = :black,
                      linewidth = 1,
-                     linealpha = .1,
+                     linealpha = .075,
                      yaxis = nothing,
                      xlabel = "Height in centimeters",
                      grid = false,
                      yshowaxis = false,
+                     # this is creates a row-vector with one entry, and 1499
+                     # empty strings. I'm doing this so that the legend doesn't
+                     # hold 1500 entries which say "Posterior predictions".
+                     # this way, there's a single entry for the 1500 densities
                      label = ["Posterior predictions" #=
                               =# repeat([""], 1, 1499)])
 
@@ -327,4 +389,21 @@ Plots.density!(p_ppc,
                fill = line_color,
                fillalpha = .5,
                label = "Data")
+
+Plots.vline!(p_ppc,
+             [196];
+             color = :red,
+             label = nothing)
+
+Plots.vline!(p_ppc,
+             [d_summary[:μ, :mean]];
+             color = :red,
+             linestyle = :dash,
+             label = nothing)
 ```
+
+The thin black lines are the posterior simulations, and the aquamarine
+distribution is the observed data. We can see that there is considerable
+variation in the distributions produced by the simulations.
+The solid red line is set at 196 cm, and the dashed red line is set at the mean
+of the posterior $\mu$ estimates.
