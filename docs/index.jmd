@@ -219,7 +219,7 @@ plotting the data, but during data collection.
 Now, let's code up the Bayesian model in `{Turing}`. This is fairly easy, given
 that this is a simple model.
 
-```julia; eval=false
+```julia
 # build height estimation model
 @model function m_height(height)
     # set the priors for the μ and σ parameters
@@ -240,7 +240,7 @@ each chain, and to run 6 parallel chains. For `MCMCThreads()` to work, Julia has
 to be started with the `-t X` option set, where `X` is the number of CPU cores
 available to Julia.
 
-```julia; eval=false
+```julia
 # sample
 chains = Turing.sample(m_height(d.height_cm),
                        # sampler; 1500 warmup steps, .8 acceptance rate
@@ -250,8 +250,16 @@ chains = Turing.sample(m_height(d.height_cm),
                        # number of post-warmup iterations
                        3000,
                        6;
-                       discard_adapt=true)
+                       discard_adapt = true);
+
+d_summary = MCMCChains.summarize(chains)
+d_quantiles = MCMCChains.quantile(chains)
 ```
+
+So, according to the results, the mean of the $\mu$ estimates is
+`j round(d_summary[1, :mean]; digits = 2)`, with 95% of the samples contained
+between `j round(d_quantiles[:μ, Symbol("2.5%")]; digits = 2)` and
+`j round(d_quantiles[:μ, Symbol("97.5%")]; digits = 2)`.
 
 ```julia; eval=false
 # model diagnostics

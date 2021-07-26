@@ -99,7 +99,7 @@ chains = sample(m_height(d.height_cm),
                 MCMCThreads(),
                 3000,
                 6;
-                discard_adapts = true)
+                discard_adapt = true)
 
 # model diagnostics
 # check trace and posterior density plots
